@@ -1,0 +1,13 @@
+<launch>
+    <include file="$(find-pkg-share go1_description)/launch/gazebo.launch.py" >
+    </include>
+     <include file="$(find-pkg-share slam_toolbox)/launch/online_async_launch.py">
+        <arg name="slam_params_file" value="$(find-pkg-share go1_description)/config/slam_params.yaml"/>
+        <arg name="use_sim_time" value="true"/>
+    </include>
+    <include file="$(find-pkg-share nav2_bringup)/launch/bringup_launch.py">
+        <arg name="use_sim_time" value="true"/>
+        <arg name="autostart" value="true"/>
+        <arg name="params_file" value="$(find-pkg-share go1_description)/config/params.yaml"/>
+    </include>
+</launch>

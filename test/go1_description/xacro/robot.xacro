@@ -1,0 +1,397 @@
+<?xml version="1.0"?>
+
+<robot name="go1" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:arg name="DEBUG" default="false" />
+    <xacro:arg name="use_nav2_links" default="false" />
+    <xacro:arg name="lidar_x_offset" default="0.0525" />
+    <xacro:arg name="lidar_y_offset" default="0.0" />
+    <xacro:arg name="lidar_z_offset" default=" 0.4" />
+
+    <xacro:include filename="$(find go1_description)/xacro/const.xacro" />
+    <xacro:include filename="$(find go1_description)/xacro/materials.xacro" />
+    <xacro:include filename="$(find go1_description)/xacro/leg.xacro" />
+    <!-- <xacro:include filename="$(find go1_description)/xacro/stairs.xacro"/> -->
+    <xacro:include filename="$(find go1_description)/xacro/gazebo.xacro" />
+    <xacro:include filename="$(find go1_description)/xacro/depthCamera.xacro" />
+    <xacro:include filename="$(find go1_description)/xacro/ultraSound.xacro" />
+    <!-- <xacro:include filename="$(find go1_description)/xacro/lidar.xacro" /> -->
+    <xacro:macro name="inertial_sphere" params="mass radius *origin">
+        <inertial>
+            <xacro:insert_block name="origin"/>
+            <mass value="${mass}" />
+            <inertia ixx="${(2/5) * mass * (radius*radius)}" ixy="0.0" ixz="0.0"
+                    iyy="${(2/5) * mass * (radius*radius)}" iyz="0.0"
+                    izz="${(2/5) * mass * (radius*radius)}" />
+        </inertial>
+    </xacro:macro>  
+    <xacro:macro name="inertial_cylinder" params="mass length radius *origin">
+        <inertial>
+            <xacro:insert_block name="origin"/>
+            <mass value="${mass}" />
+            <inertia ixx="${(1/12) * mass * (3*radius*radius + length*length)}" ixy="0.0" ixz="0.0"
+                    iyy="${(1/12) * mass * (3*radius*radius + length*length)}" iyz="0.0"
+                    izz="${(1/2) * mass * (radius*radius)}" />
+        </inertial>
+    </xacro:macro>
+    <!-- <xacro:include filename="$(find go1_gazebo)/launch/stairs.urdf.xacro"/> -->
+
+    <!-- <xacro:stairs stairs="15" xpos="0" ypos="0" zpos="0" /> -->
+
+    <!-- Rotor related joint and link is only for demonstrate location. -->
+    <!-- Actually, the rotor will rotate and the joint is not fixed. Reduction ratio should be
+    considered. -->
+
+    <!-- Debug mode will hung up the robot, use "true" or "false" to switch it. -->
+    <!-- <xacro:if value="$(arg DEBUG)">
+        <link name="world"/>
+        <joint name="base_static_joint" type="fixed">
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <parent link="world"/>
+            <child link="base"/>
+        </joint>
+    </xacro:if>  -->
+
+    <link name="base_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+    </link>
+
+    <xacro:if value="$(arg use_nav2_links)">
+        <link name="base_link" />
+        <joint name="base_link_to_base" type="fixed">
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <parent link="base_link" />
+            <child link="base" />
+        </joint>
+
+        <link name="height_measurement" />
+        <!-- Measured empirically from difference between actual and reported body height -->
+        <joint name="base_link_to_height" type="fixed">
+            <origin rpy="0 0 0" xyz="0 0 -0.015" />
+            <parent link="base_link" />
+            <child link="height_measurement" />
+        </joint>
+        <link name="base_footprint" />
+        <joint name="height_to_footprint" type="prismatic">
+            <parent link="height_measurement" />
+            <child link="base_footprint" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <axis xyz="0 0 -1" />
+            <limit effort="100000.0" lower="0.0" upper="1.0" velocity="100000.0" />
+        </joint>
+        <link name="base_laser" />
+        <joint name="base_link_to_lidar" type="fixed">
+            <!-- TODO need to measure mounting or make this a parameter -->
+            <origin rpy="0 0 0"
+                xyz="$(arg lidar_x_offset) $(arg lidar_y_offset) $(arg lidar_z_offset)" />
+            <parent link="base_link" />
+            <child link="base_laser" />
+        </joint>
+    </xacro:if>
+
+    <joint name="floating_base" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.35" />
+        <parent link="base_link" />
+        <child link="trunk" />
+    </joint>
+
+    <link name="trunk">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <mesh filename="file://$(find go1_description)/meshes/trunk.dae" scale="1 1 1" />
+            </geometry>
+            <!-- <material name="orange"/> -->
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size="${trunk_length} ${trunk_width} ${trunk_height}" />
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="${trunk_com_x} ${trunk_com_y} ${trunk_com_z}" />
+            <mass value="${trunk_mass}" />
+            <inertia
+                ixx="${trunk_ixx}" ixy="${trunk_ixy}" ixz="${trunk_ixz}"
+                iyy="${trunk_iyy}" iyz="${trunk_iyz}"
+                izz="${trunk_izz}" />
+        </inertial>
+    </link>
+ 
+
+    <!-- differntial drive motion -->
+    <joint name="left_wheel_joint" type="continuous">
+        <parent link="base_link"/>
+        <child link="left_wheel" />
+        <origin xyz="0 0.175 0" rpy="-${pi/2} 0 0 " />
+        <axis xyz="0 0 1" />
+    </joint>
+
+    <link name="left_wheel">
+        <!-- < visual >
+    <geometry>
+    <cylinder length = " 0.04 " radius = " 0.05 " />
+    </geometry>
+    <material name = " blue " />
+    </visual >-->
+        <collision>
+            <geometry>
+                <cylinder length="0.04" radius="0.05" />
+            </geometry>
+        </collision>
+        <xacro:inertial_cylinder mass="0.1" length="0.05" radius="0.05">
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </xacro:inertial_cylinder>
+    </link>
+
+    <gazebo reference="left_wheel">
+        <material>Gazebo/Blue</material>
+    </gazebo>
+
+    <!-- RIGHT WHEEL -->
+
+    <joint name="right_wheel_joint" type="continuous">
+        <parent link="base_link" />
+        <child link="right_wheel" />
+        <origin xyz="0 -0.175 0 " rpy="${pi/2} 0 0 " />
+        <axis xyz="0 0 -1" />
+    </joint>
+
+    <link name="right_wheel">
+        <!-- < visual >
+    < geometry >
+    < cylinder length = " 0.04 " radius = " 0.05 " / >
+    </ geometry >
+    < material name = " blue " / >
+    </ visual > -->
+        <collision>
+            <geometry>
+                <cylinder length="0.04" radius="0.05" />
+            </geometry>
+        </collision>
+        <xacro:inertial_cylinder mass="0.1" length="0.05" radius="0.05">
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </xacro:inertial_cylinder>
+    </link>
+
+    <gazebo reference="right_wheel">
+        <material>Gazebo/Blue</material>
+    </gazebo>
+
+    <!-- FRONT BALL -->
+    <link name="front_ball">
+        <collision>
+            <geometry>
+                <sphere radius="0.05" />
+            </geometry>
+        </collision>
+        <xacro:inertial_sphere mass="0.1" radius="0.05">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:inertial_sphere>
+    </link>
+    <joint name="front_ball_joint" type="fixed">
+        <parent link="trunk" />
+        <child link="front_ball"/>
+        <origin xyz="0.3 0 -0.35" rpy="0 0 0" />
+    </joint>
+    
+
+    <gazebo reference="front_ball">
+        <material>Gazebo/Blue</material>
+    </gazebo>
+
+    <gazebo reference="front_ball">
+        <material>Gazebo/Black</material>
+        <mu1 value=" 0.001 " />
+        <mu2 value=" 0.001 " />
+    </gazebo>
+
+    <!-- BACK BALL -->
+
+    <joint name="back_ball_joint" type="fixed">
+        <parent link="trunk" />
+        <child link="back_ball" />
+        <origin xyz=" -0.3  0 -0.35 " rpy=" 0 0 0 " />
+    </joint>
+
+    <link name="back_ball">
+
+        <collision>
+            <geometry>
+                <sphere radius="0.05" />
+            </geometry>
+        </collision>
+        <xacro:inertial_sphere mass=" 0.1 " radius=" 0.05 ">
+            <origin xyz="0 0 0" rpy=" 0 0 0 " />
+        </xacro:inertial_sphere>
+    </link>
+
+    <gazebo reference="back_ball">
+        <material>Gazebo/Blue</material>
+    </gazebo>
+    <gazebo reference=" back_ball ">
+        <material>Gazebo/Black</material>
+        <mu1 value=" 0.001 " />
+        <mu2 value=" 0.001 " />
+    </gazebo>
+
+    <!-- this is end of differential -->
+
+    <joint name="imu_joint" type="fixed">
+        <parent link="trunk" />
+        <child link="imu_link" />
+        <origin rpy="0 0 0" xyz="-0.01592 -0.06659 -0.00617" />
+    </joint>
+
+    <link name="imu_link">
+        <inertial>
+            <mass value="0.001" />
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001" />
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size="0.001 0.001 0.001" />
+            </geometry>
+            <!-- <material name="red"/> -->
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size=".001 .001 .001" />
+            </geometry>
+        </collision>
+    </link>
+
+    <xacro:leg name="FR" mirror="-1" mirror_dae="False" front_hind="1" front_hind_dae="True" />
+    <xacro:leg name="FL" mirror="1" mirror_dae="True" front_hind="1" front_hind_dae="True" />
+    <xacro:leg name="RR" mirror="-1" mirror_dae="False" front_hind="-1" front_hind_dae="False" />
+    <xacro:leg name="RL" mirror="1" mirror_dae="True" front_hind="-1" front_hind_dae="False" />
+
+    <joint name="scan_joint" type="fixed">
+        <parent link="trunk"/>
+        <child link="base_scan"/>
+        <origin xyz="0.05 0 0.08" rpy="0 0 0"/>
+      </joint>
+    
+      <link name="base_scan">
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+              <cylinder length="0.05" radius="0.05"/>
+            </geometry>
+          </collision>
+          <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+              <cylinder length="0.05" radius="0.05"/>
+            </geometry>
+            <material name="black"/>
+          </visual>
+          <inertial>
+            <mass value="1e-5"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+          </inertial>
+        </link>
+
+   
+        
+    <gazebo reference="base_scan">
+        <material>Gazebo/Black</material>
+        <gravity>true</gravity>
+        <sensor name="laser" type="ray">
+            <always_on>true</always_on>
+            <visualize>true</visualize>
+            <pose>-0.0 0 0.0 0 0 0</pose>
+            <update_rate>5</update_rate>
+            <ray>
+              <scan>
+                <horizontal>
+                  <samples>360</samples>
+                  <resolution>1.000000</resolution>
+                  <min_angle>0.000000</min_angle>
+                  <max_angle>6.280000</max_angle>
+                </horizontal>
+              </scan>
+              <range>
+                <min>0.120000</min>
+                <max>3.5</max>
+                <resolution>0.015000</resolution>
+              </range>
+              <noise>
+                <type>gaussian</type>
+                <mean>0.0</mean>
+                <stddev>0.01</stddev>
+              </noise>
+            </ray>
+            <plugin name="turtlebot3_laserscan" filename="libgazebo_ros_ray_sensor.so">
+                <ros>
+                <!-- <namespace>/tb3</namespace> -->
+                <remapping>~/out:=scan</remapping>
+              </ros>
+              <output_type>sensor_msgs/LaserScan</output_type>
+              <frame_name>base_scan</frame_name>
+            </plugin>
+          </sensor>
+    
+      </gazebo>
+
+    <xacro:depthCamera camID="1" name="face">
+        <origin rpy="${PI} 0 0" xyz="0.2785 0.0125 0.0167" />
+    </xacro:depthCamera>
+
+    <xacro:depthCamera camID="2" name="chin">
+        <origin rpy="${PI} ${PI/2} 0" xyz="0.2522 0.0125 -0.0436" />
+    </xacro:depthCamera>
+
+    <xacro:depthCamera camID="3" name="left">
+        <origin rpy="${PI} 0.2618 ${PI/2}" xyz="-0.066 0.082 -0.0176" />
+    </xacro:depthCamera>
+
+    <xacro:depthCamera camID="4" name="right">
+        <origin rpy="${PI} 0.2618 ${-PI/2}" xyz="-0.041 -0.082 -0.0176" />
+    </xacro:depthCamera>
+
+    <xacro:depthCamera camID="5" name="rearDown">
+        <origin rpy="${PI} ${PI/2} 0" xyz="-0.0825 0.0125 -0.04365" />
+    </xacro:depthCamera>
+
+    <joint name="camera_laserscan_joint_left" type="fixed">
+        <origin rpy="0 0.2618 0" xyz="0 0 0" />
+        <parent link="camera_left" />
+        <child link="camera_laserscan_link_left" />
+    </joint>
+
+    <link name="camera_laserscan_link_left">
+    </link>
+
+    <joint name="camera_laserscan_joint_right" type="fixed">
+        <origin rpy="0 0.2618 0" xyz="0 0 0" />
+        <parent link="camera_right" />
+        <child link="camera_laserscan_link_right" />
+    </joint>
+
+    <link name="camera_laserscan_link_right">
+    </link>
+
+    <xacro:ultraSound name="left">
+        <origin rpy="0 0.2618 ${PI/2}" xyz="-0.0535  0.0826 0.00868" />
+    </xacro:ultraSound>
+
+    <xacro:ultraSound name="right">
+        <origin rpy="0 0.2618 ${-PI/2}" xyz="-0.0535 -0.0826 0.00868" />
+    </xacro:ultraSound>
+
+    <xacro:ultraSound name="face">
+        <origin rpy="0 0 0" xyz="0.2747 0.0 -0.0088" />
+    </xacro:ultraSound>
+    
+</robot>
