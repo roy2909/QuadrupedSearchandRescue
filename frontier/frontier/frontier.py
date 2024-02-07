@@ -19,6 +19,12 @@ class FrontierExplorer(Node):
         self.create_subscription(OccupancyGrid, 'map', self.map_callback, QoSProfile(depth=1))
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.robot_pose = PoseStamped()
+        self.last_robot_pose = PoseStamped()
+        self.last_robot_pose_time = self.get_clock().now()
+        self.last_frontier_cell = None
+        self.same_frontier_count = 0
+        self.max_same_frontier_count = 3
 
     def map_callback(self, msg):
         self.map = msg
@@ -27,7 +33,7 @@ class FrontierExplorer(Node):
     def explore(self):
         self.get_logger().info("Exploring...")
 
-        frontier_markers = MarkerArray()
+        # frontier_markers = MarkerArray()
         frontier_cells = self.find_frontier_cells()
         self.get_logger().info(f"Number of frontiers before check: {len(frontier_cells)}")
 
@@ -37,17 +43,58 @@ class FrontierExplorer(Node):
             return
 
         self.get_logger().info(f"Number of frontiers after check: {len(frontier_cells)}")
+        self.robot_pose = self.get_robot_pose()
 
-        robot_pose = self.get_robot_pose()
+        # Check if the robot has made progress towards the goal
+        if self.has_made_progress():
+            self.last_robot_pose = self.robot_pose
+            self.last_robot_pose_time = self.get_clock().now()
+        else:
+            # If the robot has not made progress for too long, move to the next frontier
+            elapsed_time = (self.get_clock().now() - self.last_robot_pose_time).to_msg()
+            if elapsed_time.sec > 5:  # Adjust the timeout duration as needed
+                self.get_logger().info("Robot stuck for too long. Moving to the next frontier.")
+                self.move_to_next_frontier(frontier_cells)
 
+        closest_frontier_cell = self.find_closest_frontier(frontier_cells)
 
+        if closest_frontier_cell:
+            if closest_frontier_cell == self.last_frontier_cell:
+                self.same_frontier_count += 1
+            else:
+                self.same_frontier_count = 0
+
+            if self.same_frontier_count >= self.max_same_frontier_count:
+                self.get_logger().info(f"Robot stuck at the same frontier. Skipping and moving to the next frontier.")
+                self.move_to_next_frontier(frontier_cells)
+            else:
+                goal_pose = self.map_cell_to_pose(closest_frontier_cell)
+                self.pose_pub.publish(goal_pose)
+                self.last_frontier_cell = closest_frontier_cell
+    def has_made_progress(self):
+        # Check if the robot has made progress towards the goal
+        return (
+            self.robot_pose.pose.position.x != self.last_robot_pose.pose.position.x or
+            self.robot_pose.pose.position.y != self.last_robot_pose.pose.position.y
+        )
+
+    def move_to_next_frontier(self,frontier_cells):
+        self.last_robot_pose_time = self.get_clock().now()
+        next_frontier_cell = self.find_next_frontier(frontier_cells)
+        if next_frontier_cell:
+            goal_pose = self.map_cell_to_pose(next_frontier_cell)
+            self.pose_pub.publish(goal_pose)
+            self.get_logger().info("Moving to the next frontier.")
+            self.last_frontier_cell = next_frontier_cell
+
+    def find_closest_frontier(self, frontier_cells):
         closest_frontier_cell = None
         min_distance = float('inf')
 
         for cell in frontier_cells:
             if self.is_cell_within_map(cell):
                 cell_pose = self.map_cell_to_pose(cell)
-                distance = self.calculate_distance(robot_pose, cell_pose)
+                distance = self.calculate_distance(self.robot_pose, cell_pose)
                 if distance < min_distance:
                     min_distance = distance
                     closest_frontier_cell = cell
@@ -55,10 +102,28 @@ class FrontierExplorer(Node):
         if closest_frontier_cell:
             goal_pose = self.map_cell_to_pose(closest_frontier_cell)
             self.pose_pub.publish(goal_pose)
+            return closest_frontier_cell
+        
+    def find_next_frontier(self, frontier_cells):
+        if self.last_frontier_cell:
+            # Exclude the current frontier cell from the list
+            frontier_cells = [cell for cell in frontier_cells if cell != self.last_frontier_cell]
 
-            marker = self.create_marker(closest_frontier_cell)
-            frontier_markers.markers.append(marker)
-            self.frontier_marker_pub.publish(frontier_markers)
+        if not frontier_cells:
+            return None
+
+        # Calculate distances from the robot to each available frontier cell
+        distances = [self.calculate_distance(self.robot_pose, self.map_cell_to_pose(cell)) for cell in frontier_cells]
+
+        # Find the index of the closest frontier cell
+        closest_index = distances.index(min(distances)+1)
+
+        # Return the closest frontier cell as the next frontier
+        return frontier_cells[closest_index]
+
+            # marker = self.create_marker(closest_frontier_cell)
+            # frontier_markers.markers.append(marker)
+            # self.frontier_marker_pub.publish(frontier_markers)
 
     def rotate_in_place(self):
         rotation_goal = PoseStamped()
@@ -135,20 +200,20 @@ class FrontierExplorer(Node):
                     neighbors.append(ni * self.map.info.width + nj)
         return neighbors
 
-    def create_marker(self, cell):
-        marker = Marker()
-        marker.header.frame_id = "map"
-        marker.type = Marker.CUBE
-        marker.action = Marker.ADD
-        marker.pose.position = self.map_cell_to_pose(cell).pose.position
-        marker.scale.x = self.map.info.resolution
-        marker.scale.y = self.map.info.resolution
-        marker.scale.z = self.map.info.resolution
-        marker.color.a = 1.0
-        marker.color.r = 0.0
-        marker.color.g = 1.0
-        marker.color.b = 0.0
-        return marker
+    # def create_marker(self, cell):
+    #     marker = Marker()
+    #     marker.header.frame_id = "map"
+    #     marker.type = Marker.CUBE
+    #     marker.action = Marker.ADD
+    #     marker.pose.position = self.map_cell_to_pose(cell).pose.position
+    #     marker.scale.x = self.map.info.resolution
+    #     marker.scale.y = self.map.info.resolution
+    #     marker.scale.z = self.map.info.resolution
+    #     marker.color.a = 1.0
+    #     marker.color.r = 0.0
+    #     marker.color.g = 1.0
+    #     marker.color.b = 0.0
+    #     return marker
 
     def map_cell_to_pose(self, cell):
         pose = PoseStamped()
