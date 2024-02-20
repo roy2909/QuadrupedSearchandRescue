@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'identify=image_detection.face_finder:main',
+            'detect=image_detection.face_detect:main',
         ],
     },
 )
