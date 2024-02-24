@@ -9,12 +9,13 @@ import random
 import sys
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+import time
 
 class FrontierExplorer(Node):
     def __init__(self):
         super().__init__('frontier_explorer')
         self.map = OccupancyGrid()
-        self.frontier_marker_pub = self.create_publisher(Marker,  "/visualization_marker", 10)
+        self.marker_array_publisher = self.create_publisher(MarkerArray, '/visualization_marker_array', 10)
         self.pose_pub = self.create_publisher(PoseStamped, 'goal_pose', QoSProfile(depth=1))
         self.create_subscription(OccupancyGrid, 'map', self.map_callback, QoSProfile(depth=1))
         self.tf_buffer = Buffer()
@@ -36,6 +37,8 @@ class FrontierExplorer(Node):
         # frontier_markers = MarkerArray()
         frontier_cells = self.find_frontier_cells()
         self.get_logger().info(f"Number of frontiers before check: {len(frontier_cells)}")
+        marker_array = self.create_marker_array(frontier_cells)
+        self.marker_array_publisher.publish(marker_array)
 
         if not frontier_cells:
             self.rotate_in_place()
@@ -44,6 +47,7 @@ class FrontierExplorer(Node):
 
         self.get_logger().info(f"Number of frontiers after check: {len(frontier_cells)}")
         self.robot_pose = self.get_robot_pose()
+        
 
         # Check if the robot has made progress towards the goal
         if self.has_made_progress():
@@ -57,6 +61,7 @@ class FrontierExplorer(Node):
                 self.move_to_next_frontier(frontier_cells)
 
         closest_frontier_cell = self.find_closest_frontier(frontier_cells)
+        
 
         if closest_frontier_cell:
             if closest_frontier_cell == self.last_frontier_cell:
@@ -116,7 +121,7 @@ class FrontierExplorer(Node):
         distances = [self.calculate_distance(self.robot_pose, self.map_cell_to_pose(cell)) for cell in frontier_cells]
 
         # Find the index of the closest frontier cell
-        closest_index = distances.index(min(distances)+1)
+        closest_index = distances.index(min(distances))
 
         # Return the closest frontier cell as the next frontier
         return frontier_cells[closest_index]
@@ -168,9 +173,10 @@ class FrontierExplorer(Node):
                 robot_pose.pose.orientation = transform.transform.rotation
                 return robot_pose
             except Exception as e:
-                self.get_logger().warn(f"Failed to get robot pose: {str(e)}")
+                self.get_logger(
+                ).warn(f"Failed to get robot pose: {str(e)}")
                 retries += 1
-                rclpy.sleep(retry_delay)
+                time.sleep(retry_delay)
 
         self.get_logger().error(f"Failed to get robot pose after {max_retries} retries. Giving up.")
         return PoseStamped()
@@ -200,21 +206,28 @@ class FrontierExplorer(Node):
                     neighbors.append(ni * self.map.info.width + nj)
         return neighbors
 
-    # def create_marker(self, cell):
-    #     marker = Marker()
-    #     marker.header.frame_id = "map"
-    #     marker.type = Marker.CUBE
-    #     marker.action = Marker.ADD
-    #     marker.pose.position = self.map_cell_to_pose(cell).pose.position
-    #     marker.scale.x = self.map.info.resolution
-    #     marker.scale.y = self.map.info.resolution
-    #     marker.scale.z = self.map.info.resolution
-    #     marker.color.a = 1.0
-    #     marker.color.r = 0.0
-    #     marker.color.g = 1.0
-    #     marker.color.b = 0.0
-    #     return marker
+    def create_marker(self, cell):
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.type = Marker.CUBE
+        marker.action = Marker.ADD
+        marker.pose.position = self.map_cell_to_pose(cell).pose.position
+        marker.scale.x = self.map.info.resolution
+        marker.scale.y = self.map.info.resolution
+        marker.scale.z = self.map.info.resolution
+        marker.color.a = 1.0
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        return marker
 
+    def create_marker_array(self, cells):
+        marker_array = MarkerArray()
+        for id, cell in enumerate(cells):
+            marker = self.create_marker(cell)
+            marker.id = id
+            marker_array.markers.append(marker)
+        return marker_array
     def map_cell_to_pose(self, cell):
         pose = PoseStamped()
         pose.header.frame_id = self.map.header.frame_id
@@ -232,4 +245,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
