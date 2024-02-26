@@ -10,6 +10,9 @@ import sys
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import time
+from rclpy.time import Time
+from rclpy.duration import Duration
+import tf2_ros as tf2
 
 class FrontierExplorer(Node):
     def __init__(self):
@@ -34,7 +37,6 @@ class FrontierExplorer(Node):
     def explore(self):
         self.get_logger().info("Exploring...")
 
-        # frontier_markers = MarkerArray()
         frontier_cells = self.find_frontier_cells()
         self.get_logger().info(f"Number of frontiers before check: {len(frontier_cells)}")
         marker_array = self.create_marker_array(frontier_cells)
@@ -45,37 +47,64 @@ class FrontierExplorer(Node):
             self.get_logger().info("No more frontiers.")
             return
 
-        self.get_logger().info(f"Number of frontiers after check: {len(frontier_cells)}")
         self.robot_pose = self.get_robot_pose()
-        
 
-        # Check if the robot has made progress towards the goal
-        if self.has_made_progress():
-            self.last_robot_pose = self.robot_pose
-            self.last_robot_pose_time = self.get_clock().now()
+        grouped_frontiers = self.group_frontiers(frontier_cells)
+        if not grouped_frontiers:
+            self.get_logger().info("No grouped frontiers.")
+            return
+
+        self.get_logger().info(f"Number of grouped frontiers: {len(grouped_frontiers)}")
+
+        middle_frontier = self.find_middle_frontier(grouped_frontiers)
+        if self.has_reached_goal():
+            self.move_to_next_frontier(frontier_cells)
         else:
-            # If the robot has not made progress for too long, move to the next frontier
-            elapsed_time = (self.get_clock().now() - self.last_robot_pose_time).to_msg()
-            if elapsed_time.sec > 5:  # Adjust the timeout duration as needed
-                self.get_logger().info("Robot stuck for too long. Moving to the next frontier.")
-                self.move_to_next_frontier(frontier_cells)
+            goal_pose = self.map_cell_to_pose(middle_frontier)
+            self.pose_pub.publish(goal_pose)
 
-        closest_frontier_cell = self.find_closest_frontier(frontier_cells)
-        
 
-        if closest_frontier_cell:
-            if closest_frontier_cell == self.last_frontier_cell:
-                self.same_frontier_count += 1
-            else:
-                self.same_frontier_count = 0
+    def group_frontiers(self, frontier_cells):
+        grouped_frontiers = []
+        visited_cells = set()
 
-            if self.same_frontier_count >= self.max_same_frontier_count:
-                self.get_logger().info(f"Robot stuck at the same frontier. Skipping and moving to the next frontier.")
-                self.move_to_next_frontier(frontier_cells)
-            else:
-                goal_pose = self.map_cell_to_pose(closest_frontier_cell)
-                self.pose_pub.publish(goal_pose)
-                self.last_frontier_cell = closest_frontier_cell
+        for cell in frontier_cells:
+            if cell not in visited_cells:
+                grouped_frontier = self.breadth_first_search(cell, frontier_cells)
+                grouped_frontiers.append(grouped_frontier)
+                visited_cells.update(grouped_frontier)
+
+        return grouped_frontiers
+
+    def breadth_first_search(self, start_cell, frontier_cells):
+        queue = [start_cell]
+        visited = set([start_cell])
+
+        while queue:
+            current_cell = queue.pop(0)
+
+            for neighbor in self.get_neighbors(current_cell):
+                if neighbor in frontier_cells and neighbor not in visited:
+                    queue.append(neighbor)
+                    visited.add(neighbor)
+
+        return visited
+
+    def find_middle_frontier(self, grouped_frontiers):
+        if not grouped_frontiers:
+            return None
+
+        middle_frontier_group = grouped_frontiers[len(grouped_frontiers) // 3]
+        middle_frontier_list = list(middle_frontier_group)
+
+        if not middle_frontier_list:
+            return None
+
+        middle_frontier_index = len(middle_frontier_list) // 2
+        middle_frontier = middle_frontier_list[middle_frontier_index]
+
+        return middle_frontier
+
     def has_made_progress(self):
         # Check if the robot has made progress towards the goal
         return (
@@ -86,11 +115,24 @@ class FrontierExplorer(Node):
     def move_to_next_frontier(self,frontier_cells):
         self.last_robot_pose_time = self.get_clock().now()
         next_frontier_cell = self.find_next_frontier(frontier_cells)
+        if self.last_frontier_cell is not None and self.has_reached_goal():
+            self.get_logger().info("Initial frontier completed. Moving to the next frontier.")
+            self.last_frontier_cell = None  # Reset the last frontier cell
+            time.sleep(1.0)  # Optional delay before moving to the next frontier
+            
         if next_frontier_cell:
             goal_pose = self.map_cell_to_pose(next_frontier_cell)
             self.pose_pub.publish(goal_pose)
             self.get_logger().info("Moving to the next frontier.")
             self.last_frontier_cell = next_frontier_cell
+
+    def has_reached_goal(self):
+        if self.robot_pose is None or self.last_robot_pose is None:
+            return False
+
+        return self.calculate_distance(self.robot_pose, self.last_robot_pose) < 0.1
+    
+
 
     def find_closest_frontier(self, frontier_cells):
         closest_frontier_cell = None
@@ -160,11 +202,19 @@ class FrontierExplorer(Node):
         self.get_logger().info(f"Number of frontier cells found: {len(frontier_cells)}")
         return frontier_cells
     
-    def get_robot_pose(self, max_retries=3, retry_delay=1.0):
+    def get_robot_pose(self, max_retries=5, retry_delay=1.0):
         retries = 0
+
+        # Wait for up to 10 seconds for the transform to become available
+        timeout = Duration(seconds=10.0)
+        if not self.tf_buffer.can_transform('base_link', 'map', Time(), timeout):
+            self.get_logger().warn("Failed to get robot pose: transform from 'base_link' to 'map' not available after waiting")
+            return
+
+        # Now the transform should be available
         while retries < max_retries:
             try:
-                transform = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
+                transform = self.tf_buffer.lookup_transform('map', 'base_link', tf2.Time())
                 robot_pose = PoseStamped()
                 robot_pose.header.frame_id = 'map'
                 robot_pose.pose.position.x = transform.transform.translation.x
@@ -173,8 +223,7 @@ class FrontierExplorer(Node):
                 robot_pose.pose.orientation = transform.transform.rotation
                 return robot_pose
             except Exception as e:
-                self.get_logger(
-                ).warn(f"Failed to get robot pose: {str(e)}")
+                self.get_logger().warn(f"Failed to get robot pose: {str(e)}")
                 retries += 1
                 time.sleep(retry_delay)
 
@@ -182,28 +231,44 @@ class FrontierExplorer(Node):
         return PoseStamped()
 
 
-    def is_frontier_cell(self, index):
+    def is_frontier_cell(self, cell):
+        if isinstance(cell, int):
+            index = cell
+        elif isinstance(cell, tuple) and len(cell) == 2:
+            i, j = cell
+            index = i * self.map.info.width + j
+        else:
+            raise ValueError("Invalid input format for is_frontier_cell")
+
         if not (0 <= index < len(self.map.data)):
             return False  # Index out of range
 
         if self.map.data[index] == -1:  # Unknown cell
-            neighbors = self.get_neighbors(index)
+            neighbors = self.get_neighbors(cell)
             for neighbor in neighbors:
-                if not (0 <= neighbor < len(self.map.data)):
+                ni, nj = neighbor
+                if not (0 <= ni < self.map.info.width) or not (0 <= nj < self.map.info.height):
                     continue  # Skip neighbors outside the array
-                if self.map.data[neighbor] == 0:  # Free cell
+                if self.map.data[ni * self.map.info.width + nj] == 0:  # Free cell
                     return True
         return False
 
+    def get_neighbors(self, input):
+        if isinstance(input, int):
+            i, j = divmod(input, self.map.info.width)
+        elif isinstance(input, tuple) and len(input) == 2:
+            i, j = input
+        else:
+            raise ValueError("Invalid input format for get_neighbors")
 
-    def get_neighbors(self, index):
-        i, j = divmod(index, self.map.info.width)
         neighbors = []
+
         for dx in [-1, 0, 1]:
             for dy in [-1, 0, 1]:
                 ni, nj = i + dx, j + dy
                 if 0 <= ni < self.map.info.width and 0 <= nj < self.map.info.height:
-                    neighbors.append(ni * self.map.info.width + nj)
+                    neighbors.append((ni, nj))
+
         return neighbors
 
     def create_marker(self, cell):
@@ -216,9 +281,9 @@ class FrontierExplorer(Node):
         marker.scale.y = self.map.info.resolution
         marker.scale.z = self.map.info.resolution
         marker.color.a = 1.0
-        marker.color.r = 0.0
-        marker.color.g = 1.0
-        marker.color.b = 0.0
+        marker.color.r = random.random()
+        marker.color.g = random.random()
+        marker.color.b = random.random()
         return marker
 
     def create_marker_array(self, cells):
@@ -229,13 +294,19 @@ class FrontierExplorer(Node):
             marker_array.markers.append(marker)
         return marker_array
     def map_cell_to_pose(self, cell):
+       # Get the occupancy value of the cell
+        occupancy_value = self.map.data[cell[1] * self.map.info.width + cell[0]]
+
+        # Check if the cell is an obstacle
+        if occupancy_value > 0:
+            return None
+
         pose = PoseStamped()
         pose.header.frame_id = self.map.header.frame_id
         pose.pose.position.x = cell[0] * self.map.info.resolution + self.map.info.origin.position.x
         pose.pose.position.y = cell[1] * self.map.info.resolution + self.map.info.origin.position.y
         pose.pose.orientation.w = 1.0
         return pose
-
 
 def main(args=None):
     rclpy.init(args=args)
