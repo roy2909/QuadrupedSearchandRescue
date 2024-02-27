@@ -257,11 +257,12 @@ class FrontierExplorer(Node):
             neighbors = self.get_neighbors(cell)
             for neighbor in neighbors:
                 ni, nj = neighbor
-                if not (0 <= ni < self.map.info.width) or not (0 <= nj < self.map.info.height):
+                if not (0 <= ni < self.map.info.height) or not (0 <= nj < self.map.info.width):
                     continue
                 if self.map.data[ni * self.map.info.width + nj] == 0:
                     return True
         return False
+
 
     def create_marker(self, cell):
         marker = Marker()
@@ -298,6 +299,8 @@ class FrontierExplorer(Node):
         pose.pose.position.y = cell[1] * self.map.info.resolution + self.map.info.origin.position.y
         pose.pose.orientation.w = 1.0
         return pose
+
+
 
     def euler_from_quaternion(self, quaternion):
         x = quaternion[0]
