@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'explore = frontier.frontier:main',
+            'random_mov = frontier.random_mov:main',
         ],
     },
 )
