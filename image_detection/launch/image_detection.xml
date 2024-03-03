@@ -1,0 +1,7 @@
+<launch>
+    <node pkg="image_detection" exec="identify" name="identify" output="screen">
+    </node>
+    <node pkg="image_detection" exec="detect" name="detect" output="screen">
+</node>
+
+</launch>
