@@ -29,38 +29,43 @@ from yolov8_msgs.msg import Yolov8Inference
 
 bridge = CvBridge()
 
+
 class Camera_subscriber(Node):
     def __init__(self):
         super().__init__('camera_subscriber')
         self.bridge = CvBridge()
-        self.depth_sub = self.create_subscription(msg_Image, '/camera/aligned_depth_to_color/image_raw', self.depth_callback, 1)
-        self.depth_info_sub = self.create_subscription(CameraInfo, '/camera/color/camera_info', self.depth_info_callback, 1)
-        self.sub = self.create_subscription(msg_Image, '/camera/color/image_raw', self.detect_human, 1)
+        self.depth_sub = self.create_subscription(
+            msg_Image, '/camera/aligned_depth_to_color/image_raw', self.depth_callback, 1)
+        self.depth_info_sub = self.create_subscription(
+            CameraInfo, '/camera/color/camera_info', self.depth_info_callback, 1)
+        self.sub = self.create_subscription(
+            msg_Image, '/camera/color/image_raw', self.detect_human, 1)
+        self.marker_publisher = self.create_publisher(Marker, 'visualization_marker', 10)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
-        self.model = YOLO('/home/rahulroy/winter_project_ws/src/unitree/image_yolo/image_yolo/yolov8n.pt')
+        self.model = YOLO(
+            '/home/rahulroy/winter_project_ws/src/unitree/image_yolo/image_yolo/yolov8n.pt')
         self.person_centroids = []
         self.yolov8_inference = Yolov8Inference()
 
-
-        # self.yolov8_pub = self.create_publisher(Yolov8Inference, "/Yolov8_Inference", 1)
+        self.yolov8_pub = self.create_publisher(Yolov8Inference, "/Yolov8_Inference", 1)
         self.img_pub = self.create_publisher(msg_Image, "/inference_result", 1)
-        #stroes coordinates of people detected
-        self.people=[]
+        # stroes coordinates of people detected
+        self.people = []
         self.person_points = PointStamped()
         self._latest_color_img = None
         self._latest_depth_img = None
         self._latest_color_img_ts = None
         self.interfernce_ts = None
 
-
     def detect_human(self, data):
         image = bridge.imgmsg_to_cv2(data, "bgr8")
         # only detect person class
         classes = [0]
         conf_threshold = 0.5
-        results = self.model.predict(source=image,classes=classes,conf=conf_threshold)
+        results = self.model.predict(
+            source=image, classes=classes, conf=conf_threshold)
 
         # Assuming you only want information about the first detected person
         if results and results[0].boxes:
@@ -68,17 +73,18 @@ class Camera_subscriber(Node):
             centroid = ((box[0] + box[2]) // 2, (box[1] + box[3]) // 2)
             self.person_centroids.append(centroid)
             self.inference_ts = copy.deepcopy(self._latest_color_img_ts)
+            self.get_logger().info(f"Detected person at {self.inference_ts}")
             class_name = self.model.names[int(results[0].boxes[0].cls)]
-            
 
             if class_name == 'person':
                 # Calculate and log the distance
                 x, y, z = self.depth_world(centroid[1], centroid[0])
                 self.get_logger().info(f"Detected {class_name} at {centroid}")
                 if x is not None and y is not None and z is not None:
-                    self.get_logger().info(f"Real world coordinates: {x}, {y}, {z}")
+                    self.get_logger().info(
+                        f"Real world coordinates: {x}, {y}, {z}")
                     self.people.append([x, y, z])
-
+                    self.create_marker(x, y, z)
 
         img = bridge.imgmsg_to_cv2(data, "bgr8")
         results = self.model.predict(source=img, classes=classes, conf=0.5)
@@ -92,39 +98,34 @@ class Camera_subscriber(Node):
                 c = box.cls
                 class_name = self.model.names[int(c)]
                 print(class_name)
-                
+
                 if class_name == 'person':
                     self.inference_result = InferenceResult()
-                    b = box.xyxy[0].to('cpu').detach().numpy().copy() 
+                    b = box.xyxy[0].to('cpu').detach().numpy().copy()
                     # get box coordinates in (top, left, bottom, right) format
                     self.inference_result.class_name = class_name
                     self.inference_result.top = int(b[0])
                     self.inference_result.left = int(b[1])
                     self.inference_result.bottom = int(b[2])
                     self.inference_result.right = int(b[3])
-                    self.yolov8_inference.yolov8_inference.append(self.inference_result)
-                    
+                    self.yolov8_inference.yolov8_inference.append(
+                        self.inference_result)
 
-        # Draw bounding box only if the class name is "person"
         if len(self.yolov8_inference.yolov8_inference) > 0:
             annotated_frame = results[0].plot()
-            img_with_overlay = cv2.addWeighted(img, 0.7, annotated_frame, 0.3, 0)
+            img_with_overlay = cv2.addWeighted(
+                img, 0.7, annotated_frame, 0.3, 0)
             img_msg = bridge.cv2_to_imgmsg(img_with_overlay)
-            img_msg = bridge.cv2_to_imgmsg(annotated_frame)  
+            img_msg = bridge.cv2_to_imgmsg(annotated_frame)
 
             self.img_pub.publish(img_msg)
             self.yolov8_pub.publish(self.yolov8_inference)
             self.yolov8_inference.yolov8_inference.clear()
-                
-
-                        
 
         return self.person_centroids
 
-
     def camera_callback(self, data):
-        
-        
+
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
             self._latest_color_img = cv_image
@@ -135,8 +136,6 @@ class Camera_subscriber(Node):
         except ValueError as e:
             print(e)
             return
-
-
 
     def create_marker(self, x, y, z):
         """
@@ -154,25 +153,23 @@ class Camera_subscriber(Node):
 
         """
         marker = Marker()
-        
+
         marker.header.frame_id = "camera_link"
-        marker.header.stamp = self.inference_ts
+        marker.header.stamp = self.get_clock().now().to_msg()
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
         marker.pose.position.x = x
         marker.pose.position.y = y
         marker.pose.position.z = z
-        marker.scale.x = 0.1
-        marker.scale.y = 0.1
-        marker.scale.z = 0.1
+        marker.scale.x = 0.2
+        marker.scale.y = 0.2
+        marker.scale.z = 0.2
         marker.color.a = 1.0
         marker.color.r = 1.0
         marker.color.g = 0.0
         marker.color.b = 0.0
-        return marker
-    
-    
-        
+        self.marker_publisher.publish(marker)
+
     def depth_info_callback(self, cameraInfo):
         """
         Obtain depth camera information.
@@ -256,7 +253,8 @@ class Camera_subscriber(Node):
             depth_y = int(y)
             depth = self._latest_depth_img[depth_x, depth_y]
 
-            result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [y, x], depth)
+            result = rs2.rs2_deproject_pixel_to_point(
+                self.intrinsics, [y, x], depth)
             print(self.intrinsics)
             x_new, y_new, z_new = result[0], result[1], result[2]
 
@@ -265,8 +263,6 @@ class Camera_subscriber(Node):
             # Return some default values or handle the case as needed
             self.get_logger().warning("Unable to calculate real-world coordinates.")
             return 0.0, 0.0, 0.0
-
-
 
 
 def main(args=None):
