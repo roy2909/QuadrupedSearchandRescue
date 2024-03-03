@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="image_yolo" exec="yolo" name="image_yolo" output="screen">
+    </node>
+    
+
+</launch>
