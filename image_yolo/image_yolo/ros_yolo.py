@@ -44,7 +44,7 @@ class Camera_subscriber(Node):
         self.yolov8_inference = Yolov8Inference()
 
 
-        self.yolov8_pub = self.create_publisher(Yolov8Inference, "/Yolov8_Inference", 1)
+        # self.yolov8_pub = self.create_publisher(Yolov8Inference, "/Yolov8_Inference", 1)
         self.img_pub = self.create_publisher(msg_Image, "/inference_result", 1)
         #stroes coordinates of people detected
         self.people=[]
@@ -57,7 +57,10 @@ class Camera_subscriber(Node):
 
     def detect_human(self, data):
         image = bridge.imgmsg_to_cv2(data, "bgr8")
-        results = self.model(image)
+        # only detect person class
+        classes = [0]
+        conf_threshold = 0.5
+        results = self.model.predict(source=image,classes=classes,conf=conf_threshold)
 
         # Assuming you only want information about the first detected person
         if results and results[0].boxes:
@@ -78,7 +81,7 @@ class Camera_subscriber(Node):
 
 
         img = bridge.imgmsg_to_cv2(data, "bgr8")
-        results = self.model(img)
+        results = self.model.predict(source=img, classes=classes, conf=0.5)
 
         self.yolov8_inference.header.frame_id = "inference"
         self.yolov8_inference.header.stamp = self.get_clock().now().to_msg()
