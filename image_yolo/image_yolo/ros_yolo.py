@@ -6,20 +6,13 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image as msg_Image
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
-import sys
-import os
 import numpy as np
 import copy
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 from sensor_msgs.msg import Image as msg_Image
 from sensor_msgs.msg import CameraInfo
 from geometry_msgs.msg import PointStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from std_srvs.srv import Empty
-import tf2_geometry_msgs
-from tf2_ros import TransformException
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
 import pyrealsense2 as rs2
 if (not hasattr(rs2, 'intrinsics')):
     import pyrealsense2.pyrealsense2 as rs2
@@ -40,7 +33,7 @@ class Camera_subscriber(Node):
             CameraInfo, '/camera/color/camera_info', self.depth_info_callback, 1)
         self.sub = self.create_subscription(
             msg_Image, '/camera/color/image_raw', self.camera_callback, 1)
-        self.marker_publisher = self.create_publisher(Marker, 'visualization_marker', 10)
+        self.marker_publisher = self.create_publisher(MarkerArray, 'visualization_marker', 10)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -175,7 +168,8 @@ class Camera_subscriber(Node):
         marker.color.r = 1.0
         marker.color.g = 0.0
         marker.color.b = 0.0
-        self.marker_publisher.publish(marker)
+        MarkerArray().markers.append(marker)
+        self.marker_publisher.publish(MarkerArray().markers)
 
     def depth_info_callback(self, cameraInfo):
         """
