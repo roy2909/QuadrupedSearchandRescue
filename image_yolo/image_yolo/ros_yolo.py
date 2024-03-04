@@ -33,7 +33,7 @@ class Camera_subscriber(Node):
             CameraInfo, '/camera/color/camera_info', self.depth_info_callback, 1)
         self.sub = self.create_subscription(
             msg_Image, '/camera/color/image_raw', self.camera_callback, 1)
-        self.marker_publisher = self.create_publisher(MarkerArray, 'visualization_marker', 10)
+        self.marker_publisher = self.create_publisher(MarkerArray, 'detected_people', 10)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -153,6 +153,7 @@ class Camera_subscriber(Node):
 
         """
         marker = Marker()
+        detected_people = MarkerArray()
 
         marker.header.frame_id = "camera_link"
         marker.header.stamp = self.inference_ts
@@ -168,8 +169,8 @@ class Camera_subscriber(Node):
         marker.color.r = 1.0
         marker.color.g = 0.0
         marker.color.b = 0.0
-        MarkerArray().markers.append(marker)
-        self.marker_publisher.publish(MarkerArray().markers)
+        detected_people.markers.append(marker)
+        self.marker_publisher.publish(detected_people)
 
     def depth_info_callback(self, cameraInfo):
         """
