@@ -42,6 +42,7 @@ class Exploration(Node):
         self.map_info = None
         self.visited_grid = None
         self.frontier_array = MarkerArray()
+        self.previous_goal = None
 
         # Timer
         self.timer = self.create_timer(5, self.timer_callback)
@@ -59,12 +60,12 @@ class Exploration(Node):
     def timer_callback(self):
         if self.map_array.any():
             if self.goal_reached:
-                self.get_logger().info(
-                    f"Map info received: Resolution: {self.map_info.resolution}, Width: {self.map_info.width}, Height: {self.map_info.height}")
-                print("Goal reached, setting nearby frontier.")
+                # print("Goal reached, setting nearby frontier.")
                 frontiers = self.detect_frontiers(map_info=self.map_info)
-                self.publish_frontier_markers(frontiers)
+                print("Detected Frontiers:", frontiers)
+
                 goal = self.select_goal(frontiers, self.map_array)
+                print("Selected Goal:", goal)
                 self.publish_goal(goal)
             else:
                 print("Goal not reached, waiting.")
@@ -189,12 +190,27 @@ class Exploration(Node):
             mid_index = len(valid_frontiers) // 2
             goal_x, goal_y = valid_frontiers[mid_index]
 
-            # Remove the aborted goal from the list
-            # if self.aborted_goal is not None and (goal_x, goal_y) == self.aborted_goal:
-            #     valid_frontiers.remove((goal_x, goal_y))
-
             real_x = goal_x * self.map_info.resolution + self.map_info.origin.position.x
             real_y = goal_y * self.map_info.resolution + self.map_info.origin.position.y
+
+            # Check if the new goal is the same as the previous one
+            if (real_x, real_y) == self.previous_goal:
+                print("Same goal as previous. Choosing another.")
+                valid_frontiers.remove((goal_x, goal_y))
+                if valid_frontiers:
+                    mid_index = len(valid_frontiers) // 2
+                    goal_x, goal_y = valid_frontiers[mid_index]
+                    real_x = goal_x * self.map_info.resolution + self.map_info.origin.position.x
+                    real_y = goal_y * self.map_info.resolution + self.map_info.origin.position.y
+                else:
+                    print("No valid alternative goals.")
+                    return None, None
+
+            self.previous_goal = (real_x, real_y)
+
+            print("Valid Frontiers:", valid_frontiers)
+            print("Selected Goal (Real Coordinates):", real_x, real_y)
+
             return real_x, real_y
         else:
             return None, None
