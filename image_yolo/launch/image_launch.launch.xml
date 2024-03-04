@@ -4,8 +4,8 @@
     <node pkg="image_yolo" exec="yolo" name="image_yolo" output="screen">
     </node>
 
-    <node name="rviz2" pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share image_detection)/config/marker_detect.rviz"
-    if="'$(var use_rviz)\' == \'true\'')" />
+    <node name="rviz2" pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share image_yolo)/config/marker_detect.rviz"
+    if="$(eval '\'$(var use_rviz)\' == \'true\'')"/>
 
 
 </launch>
