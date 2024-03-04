@@ -10,6 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', ['launch/image_launch.launch.xml']),
+        ('share/' + package_name + '/config', ['config/marker_detect.rviz']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,3 +26,4 @@ setup(
         ],
     },
 )
+
