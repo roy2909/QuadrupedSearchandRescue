@@ -53,6 +53,8 @@ class Camera_subscriber(Node):
         self._latest_depth_img = None
         self._latest_color_img_ts = None
         self.inference_ts = None
+        self.marker = Marker()
+        self.detected_people = MarkerArray()
 
     def detect_human(self, request, response):
         # image = bridge.imgmsg_to_cv2(data, "bgr8")
@@ -70,7 +72,6 @@ class Camera_subscriber(Node):
         
         self.yolov8_inference.header.frame_id = "inference"
         self.yolov8_inference.header.stamp = self.get_clock().now().to_msg()
-
         for r in results:
             print(r)
             boxes = r.boxes
@@ -90,18 +91,21 @@ class Camera_subscriber(Node):
                     self.get_logger().info(
                         f"Real world coordinates: {x}, {y}, {z}")
                     self.people.append([x, y, z])
+                    self.get_logger().info(f"People: {self.people}")
                     for i, person in enumerate(self.people):
                         self.person_points.point.x = person[2]
                         self.person_points.point.y = -person[0]
                         self.person_points.point.z = -person[1]
-                        self.person_points.header.frame_id = f"people_{i}"
+                        # self.person_points.header.frame_id = f"people_{i}"
                         self.get_logger().info(f"Person at {self.person_points.point}")
-
                         self.create_marker(
-                            self.person_points.point.x,
-                            self.person_points.point.y,
-                            self.person_points.point.z
-        )
+                        self.person_points.point.x,
+                        self.person_points.point.y,
+                        self.person_points.point.z,i)
+                        self.get_logger().info(f" Count {i}")
+                        # self.detected_people.markers.append(self.marker)
+
+                        
                 if class_name == 'person':
                     self.inference_result = InferenceResult()
                     b = box.xyxy[0].to('cpu').detach().numpy().copy()
@@ -113,6 +117,10 @@ class Camera_subscriber(Node):
                     self.inference_result.right = int(b[3])
                     self.yolov8_inference.yolov8_inference.append(
                         self.inference_result)
+                    
+    # Clear the list of detected people markers
+        self.detected_people.markers = []
+        
 
         if len(self.yolov8_inference.yolov8_inference) > 0:
             annotated_frame = results[0].plot()
@@ -140,41 +148,31 @@ class Camera_subscriber(Node):
             print(e)
             return
 
-    def create_marker(self, x, y, z):
-        """
-        Create a marker for visualization.
+    def create_marker(self, x, y, z, person_count):
 
-        Args:
-        ----
-            x (float): X-coordinate.
-            y (float): Y-coordinate.
-            z (float): Z-coordinate.
+        new_marker = Marker()
+        new_marker.header.frame_id = "camera_link"
+        new_marker.header.stamp = self.inference_ts
+        new_marker.type = Marker.SPHERE
+        new_marker.action = Marker.ADD
+        new_marker.pose.position.x = x / 1000.0
+        new_marker.pose.position.y = y / 1000.0
+        new_marker.pose.position.z = z / 1000.0
+        new_marker.scale.x = 0.1
+        new_marker.scale.y = 0.1
+        new_marker.scale.z = 0.1
+        new_marker.color.a = 1.0
+        new_marker.color.r = 1.0
+        new_marker.color.g = 0.0
+        new_marker.color.b = 0.0
+        new_marker.id = person_count
+        self.detected_people.markers.clear()
+        self.get_logger().info(f"Marker id {new_marker.id}")
+        
 
-        Returns
-        -------
-            Marker: Visualization marker.
-
-        """
-        marker = Marker()
-        detected_people = MarkerArray()
-
-        marker.header.frame_id = "camera_link"
-        marker.header.stamp = self.inference_ts
-        marker.ns = "people"
-        marker.type = Marker.SPHERE
-        marker.action = Marker.ADD
-        marker.pose.position.x = x/1000
-        marker.pose.position.y = y/1000
-        marker.pose.position.z = z/1000
-        marker.scale.x = 0.1
-        marker.scale.y = 0.1
-        marker.scale.z = 0.1
-        marker.color.a = 1.0
-        marker.color.r = 1.0
-        marker.color.g = 0.0
-        marker.color.b = 0.0
-        detected_people.markers.append(marker)
-        self.marker_publisher.publish(detected_people)
+        self.detected_people.markers.append(new_marker)
+        # self.marker_publisher.publish(self.detected_people)
+        self.marker_publisher.publish(self.detected_people)
 
     def depth_info_callback(self, cameraInfo):
         """
