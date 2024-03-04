@@ -90,15 +90,18 @@ class Camera_subscriber(Node):
                     self.get_logger().info(
                         f"Real world coordinates: {x}, {y}, {z}")
                     self.people.append([x, y, z])
-                    for i in self.people:
-                        self.person_points.point.x = i[2]
-                        self.person_points.point.y = -i[0]
-                        self.person_points.point.z = -i[1]
-                        self.person_points.header.frame_id = f"people_{len(self.people)}"
+                    for i, person in enumerate(self.people):
+                        self.person_points.point.x = person[2]
+                        self.person_points.point.y = -person[0]
+                        self.person_points.point.z = -person[1]
+                        self.person_points.header.frame_id = f"people_{i}"
                         self.get_logger().info(f"Person at {self.person_points.point}")
-                       
-                        self.create_marker(self.person_points.point.x, self.person_points.point.y, self.person_points.point.z)
 
+                        self.create_marker(
+                            self.person_points.point.x,
+                            self.person_points.point.y,
+                            self.person_points.point.z
+        )
                 if class_name == 'person':
                     self.inference_result = InferenceResult()
                     b = box.xyxy[0].to('cpu').detach().numpy().copy()
@@ -157,6 +160,7 @@ class Camera_subscriber(Node):
 
         marker.header.frame_id = "camera_link"
         marker.header.stamp = self.inference_ts
+        marker.ns = "people"
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
         marker.pose.position.x = x/1000
