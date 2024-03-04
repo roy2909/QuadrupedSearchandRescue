@@ -63,7 +63,7 @@ class Exploration(Node):
                 # print("Goal reached, setting nearby frontier.")
                 frontiers = self.detect_frontiers(map_info=self.map_info)
                 print("Detected Frontiers:", frontiers)
-
+                self.publish_frontier_markers(frontiers)
                 goal = self.select_goal(frontiers, self.map_array)
                 print("Selected Goal:", goal)
                 self.publish_goal(goal)
