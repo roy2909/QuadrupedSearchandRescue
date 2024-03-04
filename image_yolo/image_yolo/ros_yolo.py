@@ -57,17 +57,10 @@ class Camera_subscriber(Node):
         self.detected_people = MarkerArray()
 
     def detect_human(self, request, response):
-        # image = bridge.imgmsg_to_cv2(data, "bgr8")
-        # only detect person class
         classes = [0]
         conf_threshold = 0.5
         results = self.model.predict(
             source=self._latest_color_img, classes=classes, conf=conf_threshold)
-
-        # # Assuming you only want information about the first detected person
-        # if results and results[0].boxes:
-        #     box = results[0].boxes[0].xyxy[0].to('cpu').detach().numpy().copy()
-            
 
         
         self.yolov8_inference.header.frame_id = "inference"
