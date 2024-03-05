@@ -5,9 +5,6 @@ from geometry_msgs.msg import PoseStamped, Point
 from action_msgs.msg import GoalStatusArray
 import numpy as np
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Twist
-from action_msgs.msg import GoalStatus
-from action_msgs.msg import GoalInfo
 import random
 from scipy.ndimage import binary_erosion
 from enum import Enum
