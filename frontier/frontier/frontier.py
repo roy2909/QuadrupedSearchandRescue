@@ -10,7 +10,12 @@ from action_msgs.msg import GoalStatus
 from action_msgs.msg import GoalInfo
 import random
 from scipy.ndimage import binary_erosion
+from enum import Enum
 
+class State(Enum):
+    IDLE=1
+    EXPLORING=2
+    MOVING=3
 
 class Exploration(Node):
     def __init__(self):
@@ -36,13 +41,15 @@ class Exploration(Node):
         # Variables
         self.map_data = None
         self.map_array = None
-        self.goal_reached = False
+        self.goal_reached = True
         self.robot_x_pose = 0.0
         self.robot_y_pose = 0.0
         self.map_info = None
         self.visited_grid = None
         self.frontier_array = MarkerArray()
         self.previous_goal = None
+        self.state = State.IDLE
+
 
         # Timer
         self.timer = self.create_timer(5, self.timer_callback)
@@ -79,30 +86,39 @@ class Exploration(Node):
 
 
     def timer_callback(self):
-        if self.map_array is not None and self.map_array.any():
+        if self.state == State.IDLE:
+            # Handle idle state
+            self.state = State.EXPLORING # Transition to exploring state
+
+        elif self.state == State.EXPLORING:
+            # Handle exploring state
             if self.goal_reached:
-                # print("Goal reached, setting nearby frontier.")
                 frontiers = self.detect_frontiers(map_info=self.map_info)
-                # print("Detected Frontiers:", frontiers)
                 self.publish_frontier_markers(frontiers)
                 goal = self.select_goal(frontiers, self.map_array)
                 print("Selected Goal:", goal)
                 self.publish_goal(goal)
             else:
                 print("Goal not reached, waiting.")
-                pass
+        elif self.state == State.MOVING:
+            # Handle moving state
+            if self.goal_reached:
+                self.state = State.EXPLORING
+        else:
+            print(f"Unknown state: {self.state}")
 
     def goal_status(self, msg):
         if msg.status_list:
             current_status = msg.status_list[-1].status
             print("Current Status:", current_status)
-  
+
             if current_status == 2:
                 self.goal_reached = False
                 print("Robot is still moving.")
             elif current_status == 4:
                 self.goal_reached = True
                 print("Goal reached.")
+                self.state = State.EXPLORING # Transition to exploring state
             else:
                 self.goal_reached = True
 
@@ -266,8 +282,11 @@ class Exploration(Node):
             self.goal_publisher.publish(goal_msg)
             self.get_logger().info(
                 f"Goal: {goal_msg.pose.position.x}, {goal_msg.pose.position.y}")
+
+            self.state = State.MOVING  # Transition to moving to goal state
         else:
             self.get_logger().warn("Map information or resolution is not available. Cannot publish goal.")
+            self.state = State.IDLE  # Transition to idle state
 
 
 
