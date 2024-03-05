@@ -28,7 +28,7 @@ class Camera_subscriber(Node):
         super().__init__('camera_subscriber')
         self.bridge = CvBridge()
         self.depth_sub = self.create_subscription(
-            msg_Image, '/camera/aligned_depth_to_color/image_raw', self.depth_callback, 1)
+            msg_Image, '/camera/depth/image_rect_raw', self.depth_callback, 1)  #/camera/aligned_depth_to_color/image_raw
         self.depth_info_sub = self.create_subscription(
             CameraInfo, '/camera/color/camera_info', self.depth_info_callback, 1)
         self.sub = self.create_subscription(
