@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'explore = frontier.frontier:main',
             'random_mov = frontier.random_mov:main',
+            'explore_detect = frontier.frontier_detection:main',
         ],
     },
 )
