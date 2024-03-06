@@ -8,6 +8,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 import random
 from scipy.ndimage import binary_erosion
 from enum import Enum
+from std_srvs.srv import Empty
 
 class State(Enum):
     IDLE=1
@@ -50,6 +51,10 @@ class Exploration(Node):
 
         # Timer
         self.timer = self.create_timer(5, self.timer_callback)
+        self.marker_client = self.create_client(Empty, "human_available")
+        while not self.marker_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info("Service 'human_available' not available, waiting again...")
+
 
     def map_update(self, msg):
         self.map_data = msg.data
@@ -94,15 +99,28 @@ class Exploration(Node):
                 self.publish_frontier_markers(frontiers)
                 goal = self.select_goal(frontiers, self.map_array)
                 print("Selected Goal:", goal)
+                self.call_detection_service()
                 self.publish_goal(goal)
             else:
                 print("Goal not reached, waiting.")
         elif self.state == State.MOVING:
-            # Handle moving state
+            self.call_detection_service()
             if self.goal_reached:
                 self.state = State.EXPLORING
         else:
             print(f"Unknown state: {self.state}")
+
+    def call_detection_service(self):
+        request = Empty.Request()
+        future = self.marker_client.call_async(request)
+        self.get_logger().info("Calling detection service...")
+        rclpy.spin_until_future_complete(self, future)
+        if future.result() is not None:
+            self.get_logger().info("Detection service call successful!")
+        else:
+            self.get_logger().error("Failed to call detection service")
+  
+
 
     def goal_status(self, msg):
         if msg.status_list:
