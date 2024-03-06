@@ -114,7 +114,10 @@ class Exploration(Node):
         request = Empty.Request()
         future = self.marker_client.call_async(request)
         self.get_logger().info("Calling detection service...")
-        rclpy.spin_until_future_complete(self, future)
+        start_time = self.get_clock().now().to_msg().sec
+        while(self.get_clock().now().to_msg().sec - start_time < 5.0):
+            if future.done():
+                break
         if future.result() is not None:
             self.get_logger().info("Detection service call successful!")
         else:
