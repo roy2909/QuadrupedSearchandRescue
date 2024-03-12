@@ -230,6 +230,12 @@ class Exploration(Node):
             self.frontier_array.markers.append(marker)
             marker_id += 1
 
+            # Check if there are more than 100 markers
+        while len(self.frontier_array.markers) > 100:
+            # Delete the oldest markers until the list has exactly 100 markers
+            self.frontier_array.markers.pop(0)
+
+
         # Publish the marker array
         self.marker_publisher.publish(self.frontier_array)
 
