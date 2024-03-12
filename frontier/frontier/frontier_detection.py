@@ -323,8 +323,8 @@ class Exploration(Node):
         marker.action = Marker.ADD
         marker.pose.position = goal_msg.pose.position
         marker.pose.orientation.w = 1.0
-        marker.scale.x = 0.2
-        marker.scale.y = 0.3
+        marker.scale.x = 0.4
+        marker.scale.y = 0.2
         marker.scale.z = 0.05
         marker.color.a = 1.0
         marker.color.r = 1.0
