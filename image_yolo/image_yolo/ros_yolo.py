@@ -42,6 +42,7 @@ class Camera_subscriber(Node):
         self.person_centroids = []
         self.yolov8_inference = Yolov8Inference()
         self.marker_server = self.create_service(Empty, "human_available", self.detect_human)
+        self.position_publisher = self.create_publisher(PointStamped, 'detected_human_positions', 10)
 
         self.yolov8_pub = self.create_publisher(Yolov8Inference, "/Yolov8_Inference", 1)
         self.img_pub = self.create_publisher(msg_Image, "/inference_result", 1)
@@ -100,6 +101,14 @@ class Camera_subscriber(Node):
                             self.person_points.point.y,
                             self.person_points.point.z, i, height, width, length)
                         self.get_logger().info(f" Count {i}")
+                        for person in self.people:
+                            person_position = PointStamped()
+                            person_position.header.frame_id = 'camera_link'  
+                            person_position.header.stamp = self.inference_ts
+                            person_position.point.x = person[2] / 1000.0  # Convert to meters
+                            person_position.point.y = -person[0] / 1000.0
+                            person_position.point.z = -person[1] / 1000.0
+                            self.position_publisher.publish(person_position)
                         # self.detected_people.markers.append(self.marker)
 
                         
