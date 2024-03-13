@@ -91,10 +91,14 @@ class Camera_subscriber(Node):
                         self.person_points.point.z = -person[1]
                         # self.person_points.header.frame_id = f"people_{i}"
                         self.get_logger().info(f"Person at {self.person_points.point}")
+                        # Calculate height, width, and length
+                        height = abs(b[3] - b[1])
+                        width = abs(b[2] - b[0])
+                        length = height  # Assuming the length is proportional to height
                         self.create_marker(
-                        self.person_points.point.x,
-                        self.person_points.point.y,
-                        self.person_points.point.z,i)
+                            self.person_points.point.x,
+                            self.person_points.point.y,
+                            self.person_points.point.z, i, height, width, length)
                         self.get_logger().info(f" Count {i}")
                         # self.detected_people.markers.append(self.marker)
 
@@ -141,19 +145,19 @@ class Camera_subscriber(Node):
             print(e)
             return
 
-    def create_marker(self, x, y, z, person_count):
-
+    def create_marker(self, x, y, z, person_count, height, width, length):
         new_marker = Marker()
         new_marker.header.frame_id = "camera_link"
         new_marker.header.stamp = self.inference_ts
-        new_marker.type = Marker.SPHERE
+        new_marker.type = Marker.CUBE
         new_marker.action = Marker.ADD
         new_marker.pose.position.x = x / 1000.0
         new_marker.pose.position.y = y / 1000.0
         new_marker.pose.position.z = z / 1000.0
-        new_marker.scale.x = 0.1
-        new_marker.scale.y = 0.1
-        new_marker.scale.z = 0.1
+        # Set the scale based on the bounding box dimensions
+        new_marker.scale.x = length / 1000.0  # Convert to meters
+        new_marker.scale.y = width / 1000.0
+        new_marker.scale.z = height / 1000.0
         new_marker.color.a = 1.0
         new_marker.color.r = 1.0
         new_marker.color.g = 0.0
@@ -161,10 +165,8 @@ class Camera_subscriber(Node):
         new_marker.id = person_count
         self.detected_people.markers.clear()
         self.get_logger().info(f"Marker id {new_marker.id}")
-        
 
         self.detected_people.markers.append(new_marker)
-        # self.marker_publisher.publish(self.detected_people)
         self.marker_publisher.publish(self.detected_people)
 
     def depth_info_callback(self, cameraInfo):

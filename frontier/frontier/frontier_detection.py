@@ -104,7 +104,6 @@ class Exploration(Node):
             else:
                 print("Goal not reached, waiting.")
         elif self.state == State.MOVING:
-            self.call_detection_service()
             if self.goal_reached:
                 self.state = State.EXPLORING
         else:
