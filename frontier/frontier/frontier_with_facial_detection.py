@@ -10,6 +10,7 @@ from scipy.ndimage import binary_erosion
 from enum import Enum
 from std_srvs.srv import Empty
 from geometry_msgs.msg import PointStamped
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 class State(Enum):
     IDLE=1
@@ -36,6 +37,7 @@ class Exploration(Node):
             'detected_human_positions',
             self.human_position_callback,
             10)
+        self.cb_group=ReentrantCallbackGroup()
 
         # Publishers
         self.goal_publisher = self.create_publisher(
@@ -43,7 +45,7 @@ class Exploration(Node):
         self.marker_publisher = self.create_publisher(
             MarkerArray, 'frontier_markers', 10)
         # client
-        self.human_available_client = self.create_client(Empty, 'human_available')
+        self.human_available_client = self.create_client(Empty, 'human_available',callback_group=self.cb_group)
 
 
 
@@ -96,13 +98,14 @@ class Exploration(Node):
 
 
 
-    def timer_callback(self):
+    async def timer_callback(self):
         if self.state == State.IDLE:
             # Handle idle state
             self.state = State.EXPLORING 
-            self.check_human_availability()
+            
 
         elif self.state == State.EXPLORING:
+            await self.check_human_availability()
             # Handle exploring state
             if self.goal_reached:
                 frontiers = self.detect_frontiers(map_info=self.map_info)
