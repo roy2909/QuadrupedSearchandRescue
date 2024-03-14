@@ -100,7 +100,6 @@ class Exploration(Node):
         if self.state == State.IDLE:
             # Handle idle state
             self.state = State.EXPLORING 
-            rclpy.get_logger().info('Checking human availability...')
             self.check_human_availability()
 
         elif self.state == State.EXPLORING:
