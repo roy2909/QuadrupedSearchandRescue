@@ -86,30 +86,34 @@ class Camera_subscriber(Node):
                         f"Real world coordinates: {x}, {y}, {z}")
                     self.people.append([x, y, z])
                     self.get_logger().info(f"People: {self.people}")
+                    self.detected_people = MarkerArray()
+
                     for i, person in enumerate(self.people):
-                        self.person_points.point.x = person[2]
-                        self.person_points.point.y = -person[0]
-                        self.person_points.point.z = -person[1]
-                        # self.person_points.header.frame_id = f"people_{i}"
-                        self.get_logger().info(f"Person at {self.person_points.point}")
-                        # Calculate height, width, and length
-                        height = abs(b[3] - b[1])
-                        width = abs(b[2] - b[0])
-                        length = height  # Assuming the length is proportional to height
-                        self.create_marker(
-                            self.person_points.point.x,
-                            self.person_points.point.y,
-                            self.person_points.point.z, i, height, width, length)
-                        self.get_logger().info(f" Count {i}")
-                        for person in self.people:
-                            person_position = PointStamped()
-                            person_position.header.frame_id = 'map'  
-                            person_position.header.stamp = self.inference_ts
-                            person_position.point.x = person[2] / 1000.0  # Convert to meters
-                            person_position.point.y = -person[0] / 1000.0
-                            person_position.point.z = -person[1] / 1000.0
-                            self.position_publisher.publish(person_position)
-                        # self.detected_people.markers.append(self.marker)
+                            self.person_points.point.x = person[2]
+                            self.person_points.point.y = -person[0]
+                            self.person_points.point.z = -person[1]
+                            self.get_logger().info(f"Person at {self.person_points.point}")
+                            # Calculate height, width, and length
+                            height = abs(b[3] - b[1])
+                            width = abs(b[2] - b[0])
+                            length = height  # Assuming the length is proportional to height
+                            self.create_marker(
+                                self.person_points.point.x,
+                                self.person_points.point.y,
+                                self.person_points.point.z, i, height, width, length)
+                            self.get_logger().info(f" Count {i}")
+
+                        # Publish the markers
+                    self.marker_publisher.publish(self.detected_people)
+                    for person in self.people:
+                        person_position = PointStamped()
+                        person_position.header.frame_id = 'map'  
+                        person_position.header.stamp = self.inference_ts
+                        person_position.point.x = person[2] / 1000.0  # Convert to meters
+                        person_position.point.y = -person[0] / 1000.0
+                        person_position.point.z = -person[1] / 1000.0
+                        self.position_publisher.publish(person_position)
+                    # self.detected_people.markers.append(self.marker)
 
                         
                 if class_name == 'person':
@@ -176,7 +180,7 @@ class Camera_subscriber(Node):
         self.get_logger().info(f"Marker id {new_marker.id}")
 
         self.detected_people.markers.append(new_marker)
-        self.marker_publisher.publish(self.detected_people)
+
 
     def depth_info_callback(self, cameraInfo):
         """
