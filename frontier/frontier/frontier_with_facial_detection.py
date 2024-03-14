@@ -157,6 +157,17 @@ class Exploration(Node):
         else:
             print(f"Unknown state: {self.state}")
 
+    async def scan_step_direction(self):
+        if self.scan_direction == 1:
+            # Move the robot to the right
+            self.robot_x_pose += self.scan_step
+            self.publish_goal((self.robot_x_pose, self.robot_y_pose))
+        else:
+            # Move the robot to the left
+            self.robot_x_pose -= self.scan_step
+            self.publish_goal((self.robot_x_pose, self.robot_y_pose))
+            
+
 
     def goal_status(self, msg):
         if msg.status_list:
