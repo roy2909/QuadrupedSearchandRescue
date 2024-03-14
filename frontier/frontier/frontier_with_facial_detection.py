@@ -16,6 +16,7 @@ class State(Enum):
     IDLE=1
     EXPLORING=2
     MOVING=3
+    SCAN=4
 
 class Exploration(Node):
     def __init__(self):
@@ -46,6 +47,14 @@ class Exploration(Node):
             MarkerArray, 'frontier_markers', 10)
         # client
         self.human_available_client = self.create_client(Empty, 'human_available',callback_group=self.cb_group)
+
+        self.scan_direction = 1  # Variable to control the scanning direction (+1: right, -1: left)
+        self.scan_angle = 0.5  # Angle for scanning movement in radians
+        self.scan_step = 0.1  # Step size for each scan movement
+        self.scan_timeout = 30  # Timeout in seconds for each scan direction
+        self.scan_start_time = None  # Variable to store the start time of the current scan direction
+        self.scan_left_done = False  # Flag to track if left scan is done
+        self.scan_right_done = False  # Flag to track if right scan is done
 
 
 
@@ -93,9 +102,7 @@ class Exploration(Node):
 
         if self.map_info is not None:
             self.visited_grid = np.zeros((downsampled_height, downsampled_width))
-
-
-
+        
 
 
     async def timer_callback(self):
@@ -103,9 +110,40 @@ class Exploration(Node):
             # Handle idle state
             self.state = State.EXPLORING 
             
+        elif self.state == State.MOVING:
+            # Handle moving state
+            if self.goal_reached:
+                self.state = State.SCAN
+        elif self.state == State.SCAN:
+            if self.goal_reached:
+                if self.scan_start_time is None:
+                    # Start the timer for the current scan direction
+                    self.scan_start_time = self.get_clock().now().seconds
+
+                # Move the robot in the current scan direction
+                self.scan_step_direction()
+
+                # Check if the scan timeout has reached
+                if (self.get_clock().now().seconds - self.scan_start_time) >= self.scan_timeout:
+                    if self.scan_direction == 1:  # Right scan completed
+                        self.scan_right_done = True
+                        await self.check_human_availability('right')  # Call the service for right scanning
+                    else:  # Left scan completed
+                        self.scan_left_done = True
+                        await self.check_human_availability('left')  # Call the service for left scanning
+
+                    # Check if both left and right scans are done
+                    if self.scan_left_done and self.scan_right_done:
+                        # Reset scan flags and transition to MOVING state
+                        self.scan_left_done = False
+                        self.scan_right_done = False
+                        self.state = State.MOVING
+                    else:
+                        # Change scan direction after timeout
+                        self.scan_direction *= -1
+                        self.scan_start_time = None  # Reset the scan start time
 
         elif self.state == State.EXPLORING:
-            await self.check_human_availability()
             # Handle exploring state
             if self.goal_reached:
                 frontiers = self.detect_frontiers(map_info=self.map_info)
@@ -115,12 +153,10 @@ class Exploration(Node):
                 self.publish_goal(goal)
             else:
                 print("Goal not reached, waiting.")
-        elif self.state == State.MOVING:
-            # Handle moving state
-            if self.goal_reached:
-                self.state = State.EXPLORING
+
         else:
             print(f"Unknown state: {self.state}")
+
 
     def goal_status(self, msg):
         if msg.status_list:
@@ -143,11 +179,12 @@ class Exploration(Node):
         y = msg.point.y
         z = msg.point.z
 
-         # Stop exploring and go to the detected human's location
+        # Stop scanning and go to the detected human's location
         self.state = State.MOVING
         self.publish_goal((x, y))
+        self.scan_start_time = None  # Reset the scan start time
 
-    async def check_human_availability(self):
+    async def check_human_availability(self, direction):
         while not self.human_available_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Service "human_available" not available, waiting...')
 
@@ -156,9 +193,9 @@ class Exploration(Node):
         try:
             response = await future
             if response:
-                self.get_logger().info('Human is available')
+                self.get_logger().info(f'Human is available in {direction} direction')
             else:
-                self.get_logger().info('No human detected')
+                self.get_logger().info(f'No human detected in {direction} direction')
         except Exception as e:
             self.get_logger().error(f'Service call failed: {str(e)}')
 
@@ -329,6 +366,27 @@ class Exploration(Node):
                 f"Goal: {goal_msg.pose.position.x}, {goal_msg.pose.position.y}")
 
             self.state = State.MOVING  # Transition to moving to goal state
+
+        if self.state == State.SCAN:
+            # If in scan state, only publish the marker for the scan goal
+            marker = Marker()
+            marker.header.frame_id = "map"
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.id = 0
+            marker.type = Marker.ARROW
+            marker.action = Marker.ADD
+            marker.pose.position = goal_msg.pose.position
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = 0.4
+            marker.scale.y = 0.2
+            marker.scale.z = 0.05
+            marker.color.a = 1.0
+            marker.color.r = 0.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0  # Green color for scan goal marker
+
+            # Publish the scan goal marker
+            self.marker_publisher.publish(MarkerArray(markers=[marker]))
         else:
             self.get_logger().warn("Map information or resolution is not available. Cannot publish goal.")
             self.state = State.IDLE  # Transition to idle state
