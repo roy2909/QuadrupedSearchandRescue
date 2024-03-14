@@ -107,7 +107,7 @@ class Camera_subscriber(Node):
                     self.marker_publisher.publish(self.detected_people)
                     for person in self.people:
                         person_position = PointStamped()
-                        person_position.header.frame_id = 'map'  
+                        person_position.header.frame_id = 'camera_link'  
                         person_position.header.stamp = self.inference_ts
                         person_position.point.x = person[2] / 1000.0  # Convert to meters
                         person_position.point.y = -person[0] / 1000.0
@@ -160,7 +160,7 @@ class Camera_subscriber(Node):
 
     def create_marker(self, x, y, z, person_count, height, width, length):
         new_marker = Marker()
-        new_marker.header.frame_id = "map"
+        new_marker.header.frame_id = "camera_link"
         new_marker.header.stamp = self.inference_ts
         new_marker.type = Marker.CUBE
         new_marker.action = Marker.ADD
