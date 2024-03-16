@@ -188,8 +188,6 @@ class Exploration(Node):
         return frontiers
 
 
-
-
     def is_valid_frontier(self, x, y, map_info):
         if not self.is_valid_cell(x, y, map_info):
             return False
