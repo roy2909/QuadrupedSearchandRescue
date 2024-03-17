@@ -3,9 +3,9 @@
 <package format="3">
   <name>image_yolo</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Human detection ROS 2 node using YOLO v8</description>
   <maintainer email="rahulroy2909@gmail.com">rahulroy</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache License 2.0</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
