@@ -10,6 +10,10 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', ['launch/frontier.launch.xml']),
+        ('share/' + package_name + '/launch', ['launch/frontier_detect.launch.xml']),
+        ('share/' + package_name + '/config', ['config/frontier.rviz']),
+        ('share/' + package_name + '/config', ['config/frontier_only.rviz']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -21,7 +25,6 @@ setup(
     entry_points={
         'console_scripts': [
             'explore = frontier.frontier:main',
-            'random_mov = frontier.random_mov:main',
             'explore_detect = frontier.frontier_detection:main',
         ],
     },
