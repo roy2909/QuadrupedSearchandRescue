@@ -1,4 +1,5 @@
 # Autonomous Exploration and Detection with A Unitree Go1 Robot
+Author: Rahul Roy
 
 ## Overview
 Rescue missions in disaster-stricken areas pose significant challenges due to their dangerous and unpredictable nature. The intricacies of these environments make it difficult to send humans for exploration, necessitating the utilization of ground robots or aerial robots. While conventional robots encounter limitations such as maneuvering through tight spaces and overcoming obstacles, quadrupeds offer promising solutions with their superior mobility.
