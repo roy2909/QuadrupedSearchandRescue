@@ -16,15 +16,15 @@ To address this challenge, I have programmed a Unitree Go1 robot to autonomously
 ## Workspace Setup
 
    1. Setup your workspace
-   `mkdir -p ws/src`
+      `mkdir -p ws/src`
 
    2. Go into your source directory
-    `cd ws/src`
+       `cd ws/src`
 
-    3. Dowload the dependencies.repos file
+    3. Download the dependencies.repos file
 
     4. Use the VCS tool to import the dependencies
-    `vcs import < dependencies.repos`
+      `vcs import < dependencies.repos`
 
     5. Now your workspace should have all the requires packages
    
@@ -39,7 +39,7 @@ To address this challenge, I have programmed a Unitree Go1 robot to autonomously
     7. Build the workspace
      `colcon build `
 
-    8.  Source the workspace
+    8. Source the workspace
    
 ## Launch files
 1. Launch the intel realsense camera node
