@@ -8,6 +8,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import copy
+import os
 from sensor_msgs.msg import Image as msg_Image
 from sensor_msgs.msg import CameraInfo
 from geometry_msgs.msg import PointStamped
@@ -37,8 +38,8 @@ class Camera_subscriber(Node):
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
-        self.model = YOLO(
-            '/home/rahulroy/winter_project_ws/src/unitree/image_yolo/image_yolo/yolov8n.pt')
+        path = os.path.dirname(__file__)
+        self.model = YOLO(path + '/yolov8n.pt')
         self.person_centroids = []
         self.yolov8_inference = Yolov8Inference()
         self.marker_server = self.create_service(Empty, "human_available", self.detect_human)
