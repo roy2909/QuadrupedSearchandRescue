@@ -17,19 +17,28 @@ To address this challenge, I have programmed a Unitree Go1 robot to autonomously
 
    1. Setup your workspace
    `mkdir -p ws/src`
+
    2. Go into your source directory
     `cd ws/src`
+
     3. Dowload the dependencies.repos file
-    4. Use the VCS tool to import the dependencies
+    4. 
+    5. Use the VCS tool to import the dependencies
    `vcs import < dependencies.repos`
-    5. Now your workspace should have all the requires packages
-    6. Lidar_ROS_2_SDK contains a submodule rs_driver that needs to be downloaded:
+
+    6. Now your workspace should have all the requires packages
+   
+    7. Lidar_ROS_2_SDK contains a submodule rs_driver that needs to be downloaded:
     `cd rslidar_sdk_ros2/`
+
    ` git submodule init`
+
     `git submodule update`
-    7. Build the workspace
+
+    8. Build the workspace
     `colcon build `
-    8. Source the workspace
+    
+    9.  Source the workspace
    
 ## Launch files
 1. Launch the intel realsense camera node
@@ -47,3 +56,4 @@ To address this challenge, I have programmed a Unitree Go1 robot to autonomously
    `ros2 launch frontier frontier_detect.launch.xml`
 
    
+
