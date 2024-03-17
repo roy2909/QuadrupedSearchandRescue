@@ -3,7 +3,7 @@ Rescue missions in disaster-stricken areas pose significant challenges due to th
 
 To address this challenge, I have programmed a Unitree Go1 robot to autonomously explore unknown environments and search for survivors in disaster zones. Equipped with facial recognition capabilities, the robot can efficiently navigate through confined spaces and hazardous terrain, enhancing the effectiveness of rescue operations.
 
-<iframe width="720" height="400" src="https://www.youtube.com/embed/zlveyBEczUs" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+Final Project Video: [Link to Video](https://github.com/roy2909/QuadrupedSearchandRescue/assets/144197977/d9c111cd-9b63-4f12-a80e-fc831fa61ddc)
 
 
  [Link to Portfolio Post](https://roy2909.github.io/Exploration/)
