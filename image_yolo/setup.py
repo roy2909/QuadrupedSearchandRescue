@@ -17,8 +17,8 @@ setup(
     zip_safe=True,
     maintainer='rahulroy',
     maintainer_email='rahulroy2909@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Human detection ROS 2 node using YOLO v8',
+    license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
