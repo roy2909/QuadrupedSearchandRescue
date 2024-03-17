@@ -22,23 +22,24 @@ To address this challenge, I have programmed a Unitree Go1 robot to autonomously
     `cd ws/src`
 
     3. Dowload the dependencies.repos file
-    4. 
-    5. Use the VCS tool to import the dependencies
-   `vcs import < dependencies.repos`
 
-    6. Now your workspace should have all the requires packages
+    4. Use the VCS tool to import the dependencies
+    `vcs import < dependencies.repos`
+
+    5. Now your workspace should have all the requires packages
    
-    7. Lidar_ROS_2_SDK contains a submodule rs_driver that needs to be downloaded:
+    6. Lidar_ROS_2_SDK contains a submodule rs_driver that needs to be downloaded:
+   
     `cd rslidar_sdk_ros2/`
 
-   ` git submodule init`
+    `git submodule init`
 
     `git submodule update`
 
-    8. Build the workspace
-    `colcon build `
-    
-    9.  Source the workspace
+    7. Build the workspace
+     `colcon build `
+
+    8.  Source the workspace
    
 ## Launch files
 1. Launch the intel realsense camera node
