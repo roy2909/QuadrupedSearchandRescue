@@ -96,11 +96,11 @@ class Exploration(Node):
             # Handle exploring state
             if self.goal_reached:
                 frontiers = self.detect_frontiers(map_info=self.map_info)
-                self.publish_frontier_markers(frontiers)
                 goal = self.select_goal(frontiers, self.map_array)
                 print("Selected Goal:", goal)
                 self.call_detection_service()
                 self.publish_goal(goal)
+                self.publish_frontier_markers(frontiers)
             else:
                 print("Goal not reached, waiting.")
         elif self.state == State.MOVING:
