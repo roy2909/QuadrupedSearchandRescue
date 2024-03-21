@@ -232,8 +232,16 @@ class Exploration(Node):
 
 
     def update_visited_grid(self, x, y):
+        # Convert robot's position to downsampled grid indices
+        downsample_factor = 2
+        grid_x = int((x - self.map_info.origin.position.x) / (self.map_info.resolution * downsample_factor))
+        grid_y = int((y - self.map_info.origin.position.y) / (self.map_info.resolution * downsample_factor))
+
         # Update the visited grid when the robot visits a cell
-        self.visited_grid[y, x] = self.get_clock().now().nanoseconds
+        if 0 <= grid_x < self.visited_grid.shape[1] and 0 <= grid_y < self.visited_grid.shape[0]:
+            self.visited_grid[grid_y, grid_x] = 1
+        else:
+            self.get_logger().warn("Robot position is outside the map boundary. Cannot update visited grid.")
 
     def select_goal(self, frontiers, map_data):
         valid_frontiers = []
