@@ -33,7 +33,7 @@ To address this challenge, I have programmed a Unitree Go1 robot to autonomously
 
 3. **Download the `dependencies.repos` file:**
     ```sh
-    wget <URL-to-dependencies.repos>
+    wget <[URL-to-dependencies.repos](https://github.com/roy2909/QuadrupedSearchandRescue/blob/main/dependencies.repos)>
     ```
 
 4. **Use the VCS tool to import the dependencies:**
